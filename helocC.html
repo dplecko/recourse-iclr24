@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>HELOC Recourse - Setting B</title>
+<title>HELOC Recourse - Algorithm 3</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -81,7 +81,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">HELOC Recourse - Setting B</h1>
+<h1 class="title">HELOC Recourse - Algorithm 3</h1>
 </div>
 
 
@@ -207,7 +207,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="helocC_files/figure-html/dag-1.png" class="img-fluid figure-img" width="1152"></p>
+<p><img src="helocC_files/figure-html/dag-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -277,7 +277,7 @@ Frank Copula rejected (soft test).</code></pre>
 </section>
 <section id="copula-free-learning" class="level2">
 <h2 class="anchored" data-anchor-id="copula-free-learning">Copula-free Learning</h2>
-<p>Finally, we fit a model that performs copula-free learning from Alg.~3, by regressing <span class="math display">\[\begin{align}
+<p>Finally, we fit a model that performs copula-free learning from Alg. 3, by regressing <span class="math display">\[\begin{align}
   V^*_i \sim \mathrm{Pa}^*_i + V_i + \mathrm{Pa}_i.
 \end{align}\]</span></p>
 <div class="cell">
@@ -293,37 +293,35 @@ Frank Copula rejected (soft test).</code></pre>
 </section>
 <section id="widehatyu-spread-coverage" class="level2">
 <h2 class="anchored" data-anchor-id="widehatyu-spread-coverage"><span class="math inline">\(\widehat{Y}(u^*)\)</span> Spread Coverage</h2>
-<p>For <span class="math inline">\(n_{\text{test}} = 50\)</span> samples, we compute 100 Monte Carlo samples using (i) copula-free learning from Alg.~3 (labeled <span class="math inline">\(\widehat{Y}_{R=r}(u^*)\)</span>); (ii) copula-based learning using Alg.~1 (<span class="math inline">\(\widehat{Y}^F_{R=r}(u^*)\)</span>); (iii) recourse data learning based on the model <span class="math inline">\(V^*_i \sim \mathrm{Pa}^*_i\)</span> (<span class="math inline">\(\widehat{Y}^\text{exp}_{R=r}(u^*)\)</span>); (iv) samples from the true underlying distribution based on the SCM (<span class="math inline">\(\widehat{Y}^\text{true}_{R=r}(u^*)\)</span>).</p>
+<p>For <span class="math inline">\(n_{\text{test}} = 50\)</span> samples, we compute 100 Monte Carlo samples using (i) copula-free learning from Alg. 3 (labeled <span class="math inline">\(\widehat{Y}_{R=r}(u^*)\)</span>); (ii) copula-based learning using Alg. 1 (<span class="math inline">\(\widehat{Y}^F_{R=r}(u^*)\)</span>); (iii) recourse data learning based on the model <span class="math inline">\(V^*_i \sim \mathrm{Pa}^*_i\)</span> (<span class="math inline">\(\widehat{Y}^\text{exp}_{R=r}(u^*)\)</span>); (iv) samples from the true underlying distribution based on the SCM (<span class="math inline">\(\widehat{Y}^\text{true}_{R=r}(u^*)\)</span>).</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">#' * change to something out of sample *</span></span>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>n_tst <span class="ot">&lt;-</span> <span class="dv">50</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>n_tst <span class="ot">&lt;-</span> <span class="dv">50</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>rec_free <span class="ot">&lt;-</span> <span class="fu">predict</span>(cop_free, <span class="at">data =</span> <span class="fu">tail</span>(synth_data, <span class="at">n =</span> n_tst), </span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>                    <span class="at">rec_act =</span> rec_act, <span class="at">mc_samp =</span> <span class="dv">100</span>)</span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>yhat_free <span class="ot">&lt;-</span> <span class="fu">predict</span>(</span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  xgb, <span class="at">newdata =</span> <span class="fu">as.matrix</span>(rec_free[, top6])</span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>rec_cp <span class="ot">&lt;-</span> <span class="fu">predict</span>(cop_with, <span class="at">data =</span> <span class="fu">tail</span>(synth_data, <span class="at">n =</span> n_tst), </span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>                  <span class="at">rec_act =</span> rec_act, <span class="at">mc_samp =</span> <span class="dv">100</span>)</span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>yhat_cp <span class="ot">&lt;-</span> <span class="fu">predict</span>(</span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>  xgb, <span class="fu">as.matrix</span>(rec_cp[, top6])</span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>rec_exp <span class="ot">&lt;-</span> <span class="fu">predict</span>(cop_free, <span class="at">data =</span> <span class="fu">tail</span>(synth_data, <span class="at">n =</span> n_tst), </span>
-<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>                   <span class="at">rec_act =</span> rec_act, <span class="at">mc_samp =</span> <span class="dv">100</span>, <span class="at">use_obs =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>yhat_exp <span class="ot">&lt;-</span> <span class="fu">predict</span>(</span>
-<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>  xgb, <span class="at">newdata =</span> <span class="fu">as.matrix</span>(rec_exp[, top6])</span>
-<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a><span class="co"># obtain predictions for the generated ground truth</span></span>
-<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>yhat_true <span class="ot">&lt;-</span> <span class="fu">predict</span>(</span>
-<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>  xgb, <span class="fu">as.matrix</span>(rec_mc[, top6])</span>
-<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>rec_free <span class="ot">&lt;-</span> <span class="fu">predict</span>(cop_free, <span class="at">data =</span> <span class="fu">tail</span>(synth_data, <span class="at">n =</span> n_tst), </span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>                    <span class="at">rec_act =</span> rec_act, <span class="at">mc_samp =</span> <span class="dv">100</span>)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>yhat_free <span class="ot">&lt;-</span> <span class="fu">predict</span>(</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  xgb, <span class="at">newdata =</span> <span class="fu">as.matrix</span>(rec_free[, top6])</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>rec_cp <span class="ot">&lt;-</span> <span class="fu">predict</span>(cop_with, <span class="at">data =</span> <span class="fu">tail</span>(synth_data, <span class="at">n =</span> n_tst), </span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>                  <span class="at">rec_act =</span> rec_act, <span class="at">mc_samp =</span> <span class="dv">100</span>)</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>yhat_cp <span class="ot">&lt;-</span> <span class="fu">predict</span>(</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>  xgb, <span class="fu">as.matrix</span>(rec_cp[, top6])</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>rec_exp <span class="ot">&lt;-</span> <span class="fu">predict</span>(cop_free, <span class="at">data =</span> <span class="fu">tail</span>(synth_data, <span class="at">n =</span> n_tst), </span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>                   <span class="at">rec_act =</span> rec_act, <span class="at">mc_samp =</span> <span class="dv">100</span>, <span class="at">use_obs =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>yhat_exp <span class="ot">&lt;-</span> <span class="fu">predict</span>(</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>  xgb, <span class="at">newdata =</span> <span class="fu">as.matrix</span>(rec_exp[, top6])</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a><span class="co"># obtain predictions for the generated ground truth</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>yhat_true <span class="ot">&lt;-</span> <span class="fu">predict</span>(</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>  xgb, <span class="fu">as.matrix</span>(rec_mc[, top6])</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>We inspect the spread of the MC samples for a randomly selected individual.</p>
 <div class="cell" data-layout-align="center">
@@ -339,9 +337,9 @@ Frank Copula rejected (soft test).</code></pre>
 <section id="kolmogorov-smirnov-distances-from-ground-truth" class="level2">
 <h2 class="anchored" data-anchor-id="kolmogorov-smirnov-distances-from-ground-truth">Kolmogorov-Smirnov Distances from Ground Truth</h2>
 <p>Finally, we compute the Kolmogorov-Smirnov (KS) statistics for the distance of the predicted MC empirical distributions to the underlying true distribution. In particular, we compute <span class="math display">\[\begin{align}
-  D_n(\widehat{Y}_{R=r}(u^*), \widehat{Y}^\text{true}_{R=r}(u^*)) \\
-  D_n(\widehat{Y}^F_{R=r}(u^*), \widehat{Y}^\text{true}_{R=r}(u^*))
-  D_n(\widehat{Y}^\text{exp}_{R=r}(u^*), \widehat{Y}^\text{true}_{R=r}(u^*))
+  D_n&amp;(\widehat{Y}_{R=r}(u^*), \widehat{Y}^\text{true}_{R=r}(u^*)) \\
+  D_n&amp;(\widehat{Y}^F_{R=r}(u^*), \widehat{Y}^\text{true}_{R=r}(u^*)) \\
+  D_n&amp;(\widehat{Y}^\text{exp}_{R=r}(u^*), \widehat{Y}^\text{true}_{R=r}(u^*))
 \end{align}\]</span> where <span class="math inline">\(D_n(A, B)\)</span> is the KS statistic computed as <span class="math inline">\(\sup_{x \in \mathbb{R}} |F_A(x) - F_B(x)|\)</span> where <span class="math inline">\(F_A, F_B\)</span> are empirical cumulative distribution functions of samples <span class="math inline">\(A, B\)</span>.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>ks_frame <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
@@ -368,7 +366,7 @@ Frank Copula rejected (soft test).</code></pre>
 </div>
 </div>
 </div>
-<p>As the plot demonstrates, the inference based on Alg.~3 show the smallest distributional distance from the true underlying distribution. However, recourse data learning based on regression <span class="math inline">\(V^*_i \sim \mathrm{Pa}^*_i\)</span> still outperforms the copula-based learning, since the Frank copula model is misspecified for the dataset in question. Thus, we demonstrated that topula-free learning exhibits smaller distributional distance from the ground truth from the remaining options, for cases in which the copula assumptions (i.e., margin stability conditions) are violated.</p>
+<p>As the plot demonstrates, the inference based on Alg. 3 show the smallest distributional distance from the true underlying distribution. However, recourse data learning based on regression <span class="math inline">\(V^*_i \sim \mathrm{Pa}^*_i\)</span> still outperforms the copula-based learning, since the Frank copula model is misspecified for the dataset in question. Thus, we demonstrated that copula-free learning exhibits smaller distributional distance from the ground truth from the remaining options, for cases in which the copula assumptions (i.e., margin stability conditions) are violated.</p>
 </section>
 
 </main>

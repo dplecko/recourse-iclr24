@@ -5,9 +5,10 @@ editor: visual
 theme: cosmo
 ---
 
+```{=tex}
 \newcommand{\pa}{\mathrm{pa}}
 \newcommand{\Pa}{\mathrm{Pa}}
-
+```
 ```{r setup}
 #| echo: false
 #| message: false
@@ -109,11 +110,9 @@ result <- tryCatch({
 })
 ```
 
-Since the ground truth conditional quantile distribution is given by
-\begin{align}
+Since the ground truth conditional quantile distribution is given by \begin{align}
   C(q_2 \mid q_1) = \text{Unif}[q_1, 1],
-\end{align}
-the $H_0$ hypothesis of a Frank copula quantile coupling is rejected. 
+\end{align} the $H_0$ hypothesis of a Frank copula quantile coupling is rejected.
 
 ## Train With Copula
 
@@ -129,9 +128,8 @@ cop_with <- fairecourse(
 
 ## Copula-free Learning
 
-Finally, we fit a model that performs copula-free learning from Alg. 3, by regressing
-\begin{align}
-  V^*_i \sim \Pa^*_i + V_i + \Pa_i.
+Finally, we fit a model that performs copula-free learning from Alg. 3, by regressing \begin{align}
+  V^*_i \sim \mathrm{Pa}^*_i + V_i + \mathrm{Pa}_i.
 \end{align}
 
 ```{r copula-free}
@@ -142,14 +140,13 @@ cop_free <- fairecourse(
 )
 ```
 
-As another baseline model, we also consider the model of using only the post-recourse parents and recourse data, in which we regress
-\begin{align}
-  V^*_i \sim \Pa^*_i.
+As another baseline model, we also consider the model of using only the post-recourse parents and recourse data, in which we regress \begin{align}
+  V^*_i \sim \mathrm{Pa}^*_i.
 \end{align}
 
 ## $\widehat{Y}(u^*)$ Spread Coverage
 
-For $n_{\text{test}} = 50$ samples, we compute 100 Monte Carlo samples using (i) copula-free learning from Alg. 3 (labeled $\widehat{Y}_{R=r}(u^*)$); (ii) copula-based learning using Alg. 1 ($\widehat{Y}^F_{R=r}(u^*)$); (iii) recourse data learning based on the model $V^*_i \sim \Pa^*_i$ ($\widehat{Y}^\text{exp}_{R=r}(u^*)$); (iv) samples from the true underlying distribution based on the SCM ($\widehat{Y}^\text{true}_{R=r}(u^*)$).
+For $n_{\text{test}} = 50$ samples, we compute 100 Monte Carlo samples using (i) copula-free learning from Alg. 3 (labeled $\widehat{Y}_{R=r}(u^*)$); (ii) copula-based learning using Alg. 1 ($\widehat{Y}^F_{R=r}(u^*)$); (iii) recourse data learning based on the model $V^*_i \sim \mathrm{Pa}^*_i$ ($\widehat{Y}^\text{exp}_{R=r}(u^*)$); (iv) samples from the true underlying distribution based on the SCM ($\widehat{Y}^\text{true}_{R=r}(u^*)$).
 
 ```{r yhat-spread-coverage}
 n_tst <- 50
@@ -207,13 +204,11 @@ ggplot(spread1, aes(x = x, fill = Estimation)) +
 
 ## Kolmogorov-Smirnov Distances from Ground Truth
 
-Finally, we compute the Kolmogorov-Smirnov (KS) statistics for the distance of the predicted MC empirical distributions to the underlying true distribution. In particular, we compute
-\begin{align}
+Finally, we compute the Kolmogorov-Smirnov (KS) statistics for the distance of the predicted MC empirical distributions to the underlying true distribution. In particular, we compute \begin{align}
   D_n&(\widehat{Y}_{R=r}(u^*), \widehat{Y}^\text{true}_{R=r}(u^*)) \\
   D_n&(\widehat{Y}^F_{R=r}(u^*), \widehat{Y}^\text{true}_{R=r}(u^*)) \\
   D_n&(\widehat{Y}^\text{exp}_{R=r}(u^*), \widehat{Y}^\text{true}_{R=r}(u^*))
-\end{align}
-where $D_n(A, B)$ is the KS statistic computed as $\sup_{x \in \mathbb{R}} |F_A(x) - F_B(x)|$ where $F_A, F_B$ are empirical cumulative distribution functions of samples $A, B$.
+\end{align} where $D_n(A, B)$ is the KS statistic computed as $\sup_{x \in \mathbb{R}} |F_A(x) - F_B(x)|$ where $F_A, F_B$ are empirical cumulative distribution functions of samples $A, B$.
 
 ```{r ks-stats, warning=FALSE}
 ks_frame <- NULL
@@ -250,4 +245,4 @@ ggplot(ks_frame, aes(x = ks, fill = Distribution)) +
 # ggsave("kolmogorov.png", height = 3, width = 3 * 1.41)
 ```
 
-As the plot demonstrates, the inference based on Alg. 3 show the smallest distributional distance from the true underlying distribution. However, recourse data learning based on regression $V^*_i \sim \Pa^*_i$ still outperforms the copula-based learning, since the Frank copula model is misspecified for the dataset in question. Thus, we demonstrated that copula-free learning exhibits smaller distributional distance from the ground truth from the remaining options, for cases in which the copula assumptions (i.e., margin stability conditions) are violated.
+As the plot demonstrates, the inference based on Alg. 3 show the smallest distributional distance from the true underlying distribution. However, recourse data learning based on regression $V^*_i \sim \mathrm{Pa}^*_i$ still outperforms the copula-based learning, since the Frank copula model is misspecified for the dataset in question. Thus, we demonstrated that copula-free learning exhibits smaller distributional distance from the ground truth from the remaining options, for cases in which the copula assumptions (i.e., margin stability conditions) are violated.
