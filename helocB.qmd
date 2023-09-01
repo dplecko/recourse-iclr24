@@ -1,0 +1,184 @@
+---
+title: "HELOC Recourse - Algorithm 2"
+format: html
+editor: visual
+theme: cosmo
+---
+
+```{r setup}
+#| echo: false
+#| message: false
+root <- rprojroot::find_root(rprojroot::is_git_root)
+r_dir <- file.path(root, "r")
+invisible(lapply(list.files(r_dir, full.names = TRUE), source))
+data <- read.csv(file.path(root, "data/heloc_dataset_v1.csv"))
+
+top6 <- c("AverageMInFile", "PercentTradesWBalance",
+          "PercentTradesNeverDelq", "MSinceMostRecentInqexcl7days",
+          "NetFractionRevolvingBurden", "ExternalRiskEstimate")
+
+out <- "RiskPerformance"
+
+all_dat <- heloc_synth()
+data <- all_dat[["data"]]
+synth_data <- all_dat[["synth_data"]]
+rec_data <- all_dat[["rec_data"]]
+```
+
+## Inspecting the data
+
+```{r}
+knitr::kable(head(synth_data), caption = "HELOC Synthetic dataset.")
+```
+
+## Constructing the Causal Diagram
+
+```{r dag, fig.width=12}
+adj.mat <- array(0, dim = c(length(c(top6, out)), length(c(top6, out))))
+colnames(adj.mat) <- rownames(adj.mat) <- c(top6, out)
+
+grp <- list(
+  g1 = c("AverageMInFile"),
+  g3 = c("PercentTradesWBalance", "PercentTradesNeverDelq"),
+  g4 = c("MSinceMostRecentInqexcl7days", "NetFractionRevolvingBurden"),
+  g5 = c("ExternalRiskEstimate"),
+  g6 = out
+)
+
+coord <- matrix(c(0, 0), ncol = 2L)
+
+for (i in seq.int(2, length(grp))) {
+  
+  adj.mat[unlist(grp[seq.int(1, i-1)]), grp[[i]]] <- 1
+  coord <- rbind(coord, cbind(c(seq_along(grp[[i]]) - mean(seq_along(grp[[i]]))), -(i-1)))
+}
+
+# sort topologically
+top.ord <- topologicalOrdering(adj.mat)
+adj.mat <- adj.mat[top.ord, top.ord]
+
+plot(fairadapt::graphModel(adj.mat), layout = coord, vertex.size=20, 
+     vertex.label.cex=0.8)
+```
+
+## Train an `xgboost` predictor on real data
+
+```{r xgb}
+xgbcv <- xgb.cv(params = list(eta = 0.1), data = as.matrix(data[, top6]), 
+                label = data[[out]], nrounds = 100, 
+                early_stopping_rounds = 3,
+                nfold = 10, verbose = FALSE)
+
+nrounds <- xgbcv$best_iteration
+xgb <- xgboost(params = list(eta = 0.1), data = as.matrix(data[, top6]), 
+               label = data[[out]], nrounds = nrounds, verbose = FALSE)
+```
+
+## p-value distributions
+
+```{r pval-distributions}
+nrep <- 50
+
+gof_tst <- NULL
+for (i in seq_len(nrep)) {
+  
+  set.seed(i)
+  all_dat <- heloc_synth(frank = (i <= nrep / 2))
+  data <- all_dat[["data"]]
+  synth_data <- all_dat[["synth_data"]]
+  rec_data <- all_dat[["rec_data"]]
+  
+  yhat <- predict(xgb, newdata = as.matrix(synth_data[, top6]))
+
+  rec_samp <- which(synth_data$PercentTradesNeverDelq < 0.8 & 
+                    synth_data$NetFractionRevolvingBurden > 0.4 &
+                    yhat < 0.5)[1:500]
+
+  rec_act <- list(
+    list(
+      PercentTradesNeverDelq = 0.85,
+      NetFractionRevolvingBurden = 0.2
+    )
+  )
+
+  course_obj <- fairecourse(
+    ~ ., adj.mat = adj.mat[-7, -7], train.data = synth_data, 
+    rec_act = rec_act, pre.rec = synth_data[rec_samp, ], 
+    post.rec = rec_data[rec_samp, ], soft.test = TRUE
+  )
+  
+  gof_tst <- rbind(
+    gof_tst, data.frame(
+      p = unlist(lapply(course_obj$q.engine, `[[`, "p.val")),
+      frank = (i <= nrep / 2)
+    )
+  )
+  cat("\r", i)
+}
+```
+
+
+```{r gof-plot}
+#| echo: false
+ggplot(gof_tst, aes(x = p, fill = frank)) +
+  geom_density(alpha = 0.4) + theme_minimal() +
+  xlab("p-value") + ylab("Density") +
+  scale_fill_discrete(name = latex2exp::TeX("$H_0$ hypothesis")) +
+  theme(legend.position = c(0.7, 0.7),
+        legend.background = element_rect(color = "black")) 
+
+# ggsave("pval-spread.png", height = 3, width = 4)
+```
+
+## $\tau$ Inference
+
+```{r tau-inference}
+tau_grid <- expand.grid(tau = c(0.5, 0.7, 0.8),
+                        nsamp = c(200, 500, 1000, 2000, 5000),
+                        seed = 1:10, tau_hat = 0)
+
+for (i in seq_len(nrow(tau_grid))) {
+  
+  set.seed(tau_grid$seed[i])
+  all_dat <- heloc_synth(nsynth = 10^4 + tau_grid$nsamp[i], 
+                         theta = tau_to_theta(tau_grid$tau[i]))
+  
+  train_dat <- head(all_dat[["synth_data"]], n = 10^4)
+  pre_rec <- tail(all_dat[["synth_data"]], n = tau_grid$nsamp[i])
+  post_rec <- tail(all_dat[["rec_data"]], n = tau_grid$nsamp[i])
+  
+  course_obj <- fairecourse(
+    ~ ., adj.mat = adj.mat[-7, -7], train.data = synth_data, 
+    rec_act = rec_act, pre.rec = pre_rec, 
+    post.rec = post_rec, soft.test = TRUE
+  )
+  
+  tau_grid$tau_hat[i] <- mean(
+    unlist(lapply(course_obj$q.engine, `[[`, "tau"))
+  )
+  cat("\r", i)
+}
+```
+
+```{r tau-inference-spread}
+#| echo: false
+p_tauinf <- ggplot(
+    tau_grid, aes(x = log(nsamp), y = tau_hat, fill = factor(tau))
+) +
+  geom_boxplot(
+      aes(group = interaction(log(nsamp), factor(tau))), position = "identity"
+  ) +
+  geom_line(aes(y = tau, color = factor(tau)), linetype = "dotdash", 
+            linewidth = 0.75) +
+  theme_minimal() +
+  scale_fill_discrete(name = latex2exp::TeX("$\\tau$ level")) +
+  theme(legend.position = "bottom") +
+  xlab(latex2exp::TeX("log($n$)")) +
+  ylab(latex2exp::TeX("\\tau")) +
+  scale_color_discrete(guide = "none")
+
+print(p_tauinf)
+
+ggsave("tau-inference.png", plot = p_tauinf,
+       width = 3 * 1.41, height = 3)
+```

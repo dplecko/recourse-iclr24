@@ -1,0 +1,183 @@
+---
+title: "HELOC Recourse - Algorithm 1"
+format: html
+editor: visual
+theme: cosmo
+---
+
+```{r setup}
+#| echo: false
+#| message: false
+set.seed(2023)
+root <- rprojroot::find_root(rprojroot::is_git_root)
+r_dir <- file.path(root, "r")
+invisible(lapply(list.files(r_dir, full.names = TRUE), source))
+data <- read.csv(file.path(root, "data/heloc_dataset_v1.csv"))
+
+top10 <- c("ExternalRiskEstimate", "NetFractionRevolvingBurden", "AverageMInFile", 
+           "MSinceOldestTradeOpen", "PercentTradesWBalance", "PercentInstallTrades", 
+           "NumSatisfactoryTrades", "NumTotalTrades", "PercentTradesNeverDelq", 
+           "MSinceMostRecentInqexcl7days")
+out <- "RiskPerformance"
+data <- data[, c(out, top10)]
+data$RiskPerformance <- ifelse(data$RiskPerformance == "Bad", 0, 1)
+```
+
+## Inspecting the data
+
+```{r}
+knitr::kable(head(data), caption = "HELOC dataset.")
+```
+
+## Constructing the Causal Diagram
+
+```{r dag}
+#| fig-align: center
+adj.mat <- array(0, dim = c(11, 11))
+colnames(adj.mat) <- rownames(adj.mat) <- c(top10, out)
+
+grp <- list(
+  g1 = c("MSinceOldestTradeOpen", "AverageMInFile"),
+  g2 = c("NumTotalTrades", "NumSatisfactoryTrades"),
+  g3 = c("PercentInstallTrades", "PercentTradesWBalance", 
+         "PercentTradesNeverDelq"),
+  g4 = c("MSinceMostRecentInqexcl7days", "NetFractionRevolvingBurden"),
+  g5 = c("ExternalRiskEstimate"),
+  g6 = out
+)
+
+coord <- matrix(c(-0.5, 0.5, 0, 0), ncol = 2L)
+
+for (i in seq.int(2, length(grp))) {
+  
+  adj.mat[unlist(grp[seq.int(1, i-1)]), grp[[i]]] <- 1
+  coord <- rbind(
+    coord, 
+    cbind(c(seq_along(grp[[i]]) - mean(seq_along(grp[[i]]))), -(i-1))
+  )
+}
+
+# sort topologically
+top.ord <- topologicalOrdering(adj.mat)
+adj.mat <- adj.mat[top.ord, top.ord]
+
+par(mar=c(0,0,0,0)+.1)
+plot(fairadapt::graphModel(adj.mat), layout = coord, vertex.size=20, 
+     vertex.label.cex=0.8)
+```
+
+## Train an `xgboost` predictor
+
+```{r xgb}
+xgbcv <- xgb.cv(params = list(eta = 0.1), data = as.matrix(data[, top10]), 
+                label = data[[out]], nrounds = 100, 
+                early_stopping_rounds = 3,
+                objective = "binary:logistic",
+                nfold = 10, verbose = FALSE)
+
+nrounds <- xgbcv$best_iteration
+xgb <- xgboost(params = list(eta = 0.1), data = as.matrix(data[, top10]), 
+               label = data[[out]], nrounds = nrounds, verbose = FALSE)
+```
+
+## Recourse object
+
+The recourse object is trained using the `fairecourse()` function.
+
+```{r recourse}
+course_obj <- fairecourse(
+  ~ ., adj.mat = adj.mat, train.data = data
+)
+```
+
+## Recourse Effects Inference
+
+The inference of effects of recourse can be performed by calling the `predict()` function on the output of the `fairecourse()` function call.
+
+```{r rec-sample}
+# choose individuals with a negative decisions, C3 < 70, D2 > 50
+rec_samp <- which(data$PercentTradesNeverDelq < 70 & 
+                  data$NetFractionRevolvingBurden > 50 &
+                  data$RiskPerformance == 0)[1:10]
+
+obs_data <- rec_data <- data[rec_samp, ]
+
+# define recourse action do(C3 = 85, D2 = 20)
+rec_act <- list(
+  list(
+    PercentTradesNeverDelq = 85,
+    NetFractionRevolvingBurden = 20
+  )
+)
+
+# predict effect of recourse 
+post_data <- predict(
+  course_obj,
+  data = obs_data,
+  rec_act = rec_act,
+  mc_samp = 100
+)
+```
+
+## Inspecting Effect of Recourse
+
+```{r rec-effect}
+#| echo: false
+#| fig-align: center
+ggplot(
+  data = data.frame(obs = obs_data$ExternalRiskEstimate, 
+                    rec = post_data$ExternalRiskEstimate),
+  aes(x = obs, y = rec)
+) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "red") +
+  theme_minimal()
+```
+
+As shown by the plot, the prediction of a positive outcome after recourse ($\widehat{Y}_{R=r}(u^*)$) increases compared to the prediction before recourse ($\widehat{Y}(u)$) for each individual (the $\widehat{Y}(u) = \widehat{Y}_{R=r}(u^*)$ line is shown in red). This is to be expected, since the variable `PercentTradesNeverDelq` has a strictly increasing relationship with $\widehat{Y}$, whereas `NetFractionRevolvingBurden` has a decreasing relationship.
+
+## $\tau$ Influence
+
+We next examine the influence of the $\tau$ parameter on the spread of the post-recourse values $\widehat{Y}_{R=r}(u^*)$.
+
+```{r tau-influence}
+tau_seq <- c(0.7, 0.8, 0.9, 1)
+res <- NULL
+for (tau in tau_seq) {
+  
+  post_data <- predict(
+    course_obj,
+    data = obs_data[2, ],
+    rec_act = rec_act,
+    mc_samp = 100,
+    tau = tau
+  )
+  
+  res <- rbind(
+    res,
+    data.frame(tau = tau, yhat = predict(xgb, as.matrix(post_data[, top10])))
+  )
+}
+```
+
+```{r rec-tau-spread}
+#| echo: false
+#| fig-align: center
+yhat_spread <- ggplot(
+  res, aes(x = yhat, fill = factor(tau))
+) + geom_density(alpha = 0.3) +
+  theme_minimal() +
+  xlab(latex2exp::TeX("$\\widehat{Y}_{C_3 = 85, D_2 = 20}(u^*)$ distribution")) +
+  scale_fill_discrete(name = latex2exp::TeX("$\\tau$ value")) +
+  ylab("Density") +
+  theme(legend.position = c(0.7,0.7),
+        legend.background = element_rect(colour = "black"),
+        text = element_text())
+
+ggsave(filename = "yhat-spread.png", plot = yhat_spread,
+       height = 3, width = 3 * 1.41)
+
+yhat_spread
+```
+
+As the plot indicates, values of $\tau$ closer to $0$ indicate a larger spread, since the coupling induced by Frank's copula increases the amount of uncertainty.
